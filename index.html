@@ -16,18 +16,18 @@
   <script>
   window.addEventListener('DOMContentLoaded', () => {
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 2000);
-    camera.position.set(0, 100, 600);
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 5000);
+    camera.position.set(0, 200, 1200);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    const light = new THREE.PointLight(0xffffff, 2, 2000);
+    const light = new THREE.PointLight(0xffffff, 2, 5000);
     scene.add(light);
 
     // Soleil
-    const sunGeo = new THREE.SphereGeometry(40, 64, 64);
+    const sunGeo = new THREE.SphereGeometry(100, 64, 64);
     const sunMat = new THREE.MeshBasicMaterial({ color: 0xffcc00 });
     const sun = new THREE.Mesh(sunGeo, sunMat);
     scene.add(sun);
@@ -35,9 +35,9 @@
     const textureLoader = new THREE.TextureLoader();
 
     const planets = [
-      { name: "OUTREACH", radius: 200, size: 20, texture: 'textures/neptune.jpg', speed: 0.003, angle: 0 },
-      { name: "PERSONAL", radius: 300, size: 26, texture: 'textures/venus.jpg', speed: 0.002, angle: 2 },
-      { name: "RESEARCH", radius: 400, size: 30, texture: 'textures/earth.jpg', speed: 0.0012, angle: 4 }
+      { name: "OUTREACH", radius: 600, size: 50, texture: 'textures/neptune.jpg', speed: 0.002, angle: 0, trail: [] },
+      { name: "PERSONAL", radius: 900, size: 70, texture: 'textures/venus.jpg', speed: 0.0015, angle: 2, trail: [] },
+      { name: "RESEARCH", radius: 1200, size: 90, texture: 'textures/earth.jpg', speed: 0.001, angle: 4, trail: [] }
     ];
 
     planets.forEach(p => {
@@ -47,7 +47,6 @@
       p.mesh = new THREE.Mesh(geo, mat);
       scene.add(p.mesh);
 
-      // Labels
       const canvas = document.createElement('canvas');
       canvas.width = 512; canvas.height = 128;
       const ctx = canvas.getContext('2d');
@@ -57,20 +56,35 @@
       const labelTex = new THREE.CanvasTexture(canvas);
       const labelMat = new THREE.SpriteMaterial({ map: labelTex });
       const label = new THREE.Sprite(labelMat);
-      label.scale.set(100, 30, 1);
+      label.scale.set(200, 60, 1);
       p.label = label;
       scene.add(label);
     });
 
     function animate() {
       requestAnimationFrame(animate);
+
       planets.forEach(p => {
         p.angle += p.speed;
         const x = p.radius * Math.cos(p.angle);
         const y = p.radius * Math.sin(p.angle) * 0.2;
-        p.mesh.position.set(x, y, 0);
-        p.label.position.set(x, y + p.size + 10, 0);
+        const z = 0;
+
+        p.mesh.position.set(x, y, z);
+        p.label.position.set(x, y + p.size + 20, z);
+
+        const point = new THREE.Vector3(x, y, z);
+        p.trail.push(point);
+        if (p.trail.length > 200) p.trail.shift();
+
+        if (p.trailLine) scene.remove(p.trailLine);
+
+        const trailGeo = new THREE.BufferGeometry().setFromPoints(p.trail);
+        const trailMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.3 });
+        p.trailLine = new THREE.Line(trailGeo, trailMat);
+        scene.add(p.trailLine);
       });
+
       renderer.render(scene, camera);
     }
 
