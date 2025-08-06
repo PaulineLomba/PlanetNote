@@ -9,51 +9,55 @@
   </style>
 </head>
 <body>
-
-  <!-- 📦 Inclusion locale de Three.js -->
-  <script src="js/three.min.js"></script>
+  <!-- Three.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.153.0/build/three.min.js"></script>
 
   <!-- CONTENU 3D -->
   <script>
   window.addEventListener('DOMContentLoaded', () => {
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 50, 300);
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 2000);
+    camera.position.set(0, 100, 600);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    const light = new THREE.PointLight(0xffffff, 2, 1000);
+    const light = new THREE.PointLight(0xffffff, 2, 2000);
     scene.add(light);
 
-    const sunGeo = new THREE.SphereGeometry(12, 32, 32);
+    // Soleil
+    const sunGeo = new THREE.SphereGeometry(40, 64, 64);
     const sunMat = new THREE.MeshBasicMaterial({ color: 0xffcc00 });
     const sun = new THREE.Mesh(sunGeo, sunMat);
     scene.add(sun);
 
+    const textureLoader = new THREE.TextureLoader();
+
     const planets = [
-      { name: "OUTREACH", radius: 60, size: 5, color: 0x00ccff, speed: 0.01, angle: 0 },
-      { name: "PERSONAL", radius: 100, size: 7, color: 0xff66cc, speed: 0.007, angle: 2 },
-      { name: "RESEARCH", radius: 140, size: 9, color: 0x66ff66, speed: 0.004, angle: 4 }
+      { name: "OUTREACH", radius: 200, size: 20, texture: 'textures/neptune.jpg', speed: 0.003, angle: 0 },
+      { name: "PERSONAL", radius: 300, size: 26, texture: 'textures/venus.jpg', speed: 0.002, angle: 2 },
+      { name: "RESEARCH", radius: 400, size: 30, texture: 'textures/earth.jpg', speed: 0.0012, angle: 4 }
     ];
 
     planets.forEach(p => {
-      const geo = new THREE.SphereGeometry(p.size, 32, 32);
-      const mat = new THREE.MeshStandardMaterial({ color: p.color });
+      const geo = new THREE.SphereGeometry(p.size, 64, 64);
+      const texture = textureLoader.load(p.texture);
+      const mat = new THREE.MeshStandardMaterial({ map: texture });
       p.mesh = new THREE.Mesh(geo, mat);
       scene.add(p.mesh);
 
+      // Labels
       const canvas = document.createElement('canvas');
-      canvas.width = 256; canvas.height = 64;
+      canvas.width = 512; canvas.height = 128;
       const ctx = canvas.getContext('2d');
-      ctx.font = 'bold 28px Arial';
+      ctx.font = 'bold 48px Arial';
       ctx.fillStyle = 'white';
-      ctx.fillText(p.name, 10, 40);
-      const texture = new THREE.CanvasTexture(canvas);
-      const labelMat = new THREE.SpriteMaterial({ map: texture });
+      ctx.fillText(p.name, 10, 70);
+      const labelTex = new THREE.CanvasTexture(canvas);
+      const labelMat = new THREE.SpriteMaterial({ map: labelTex });
       const label = new THREE.Sprite(labelMat);
-      label.scale.set(40, 15, 1);
+      label.scale.set(100, 30, 1);
       p.label = label;
       scene.add(label);
     });
@@ -65,7 +69,7 @@
         const x = p.radius * Math.cos(p.angle);
         const y = p.radius * Math.sin(p.angle) * 0.2;
         p.mesh.position.set(x, y, 0);
-        p.label.position.set(x, y + p.size + 6, 0);
+        p.label.position.set(x, y + p.size + 10, 0);
       });
       renderer.render(scene, camera);
     }
