@@ -31,18 +31,25 @@
     const light = new THREE.PointLight(0xffffff, 2, 5000);
     scene.add(light);
 
-    // Soleil
-    const sunGeo = new THREE.SphereGeometry(150, 64, 64);
-    const sunMat = new THREE.MeshBasicMaterial({ color: 0xffcc00 });
+    const textureLoader = new THREE.TextureLoader();
+
+    // Sun with texture and glow
+    const sunTexture = textureLoader.load('textures/sun.jpg');
+    const sunGeo = new THREE.SphereGeometry(180, 64, 64);
+    const sunMat = new THREE.MeshBasicMaterial({ map: sunTexture });
     const sun = new THREE.Mesh(sunGeo, sunMat);
     scene.add(sun);
 
-    const textureLoader = new THREE.TextureLoader();
+    const sunGlow = new THREE.Mesh(
+      new THREE.SphereGeometry(300, 64, 64),
+      new THREE.MeshBasicMaterial({ color: 0xffcc00, transparent: true, opacity: 0.15 })
+    );
+    scene.add(sunGlow);
 
     const planets = [
-      { name: "OUTREACH", radius: 1000, size: 80, texture: 'textures/neptune.jpg', speed: 0.002, angle: 0, trail: [] },
-      { name: "PERSONAL", radius: 1400, size: 100, texture: 'textures/venus.jpg', speed: 0.0015, angle: 2, trail: [] },
-      { name: "RESEARCH", radius: 1800, size: 130, texture: 'textures/earth.jpg', speed: 0.001, angle: 4, trail: [] }
+      { name: "OUTREACH", radius: 1600, size: 150, texture: 'textures/neptune.jpg', speed: 0.002, angle: 0, trail: [] },
+      { name: "PERSONAL", radius: 2200, size: 180, texture: 'textures/venus.jpg', speed: 0.0015, angle: 2, trail: [] },
+      { name: "RESEARCH", radius: 2800, size: 220, texture: 'textures/earth.jpg', speed: 0.001, angle: 4, trail: [] }
     ];
 
     planets.forEach(p => {
@@ -91,8 +98,8 @@
 
         p.trail.forEach((pt, i) => {
           positions.set([pt.x, pt.y, pt.z], i * 3);
-          const alpha = i / p.trail.length;
-          colors.set([1.0, 1.0, 1.0], i * 3); // RGB white
+          const fade = i / p.trail.length;
+          colors.set([fade, fade, fade], i * 3);
         });
 
         const trailGeo = new THREE.BufferGeometry();
