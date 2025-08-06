@@ -6,6 +6,11 @@
   <style>
     body { margin: 0; overflow: hidden; background: black; }
     canvas { display: block; }
+    .label-canvas {
+      background-color: rgba(255, 255, 255, 0.15);
+      border-radius: 10px;
+      padding: 8px;
+    }
   </style>
 </head>
 <body>
@@ -27,7 +32,7 @@
     scene.add(light);
 
     // Soleil
-    const sunGeo = new THREE.SphereGeometry(100, 64, 64);
+    const sunGeo = new THREE.SphereGeometry(150, 64, 64);
     const sunMat = new THREE.MeshBasicMaterial({ color: 0xffcc00 });
     const sun = new THREE.Mesh(sunGeo, sunMat);
     scene.add(sun);
@@ -35,9 +40,9 @@
     const textureLoader = new THREE.TextureLoader();
 
     const planets = [
-      { name: "OUTREACH", radius: 600, size: 50, texture: 'textures/neptune.jpg', speed: 0.002, angle: 0, trail: [] },
-      { name: "PERSONAL", radius: 900, size: 70, texture: 'textures/venus.jpg', speed: 0.0015, angle: 2, trail: [] },
-      { name: "RESEARCH", radius: 1200, size: 90, texture: 'textures/earth.jpg', speed: 0.001, angle: 4, trail: [] }
+      { name: "OUTREACH", radius: 1000, size: 80, texture: 'textures/neptune.jpg', speed: 0.002, angle: 0, trail: [] },
+      { name: "PERSONAL", radius: 1400, size: 100, texture: 'textures/venus.jpg', speed: 0.0015, angle: 2, trail: [] },
+      { name: "RESEARCH", radius: 1800, size: 130, texture: 'textures/earth.jpg', speed: 0.001, angle: 4, trail: [] }
     ];
 
     planets.forEach(p => {
@@ -50,13 +55,15 @@
       const canvas = document.createElement('canvas');
       canvas.width = 512; canvas.height = 128;
       const ctx = canvas.getContext('2d');
+      ctx.fillStyle = 'rgba(80, 80, 80, 0.7)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.font = 'bold 48px Arial';
       ctx.fillStyle = 'white';
-      ctx.fillText(p.name, 10, 70);
+      ctx.fillText(p.name, 20, 80);
       const labelTex = new THREE.CanvasTexture(canvas);
       const labelMat = new THREE.SpriteMaterial({ map: labelTex });
       const label = new THREE.Sprite(labelMat);
-      label.scale.set(200, 60, 1);
+      label.scale.set(260, 70, 1);
       p.label = label;
       scene.add(label);
     });
@@ -71,16 +78,28 @@
         const z = 0;
 
         p.mesh.position.set(x, y, z);
-        p.label.position.set(x, y + p.size + 20, z);
+        p.label.position.set(x, y + p.size + 30, z);
 
         const point = new THREE.Vector3(x, y, z);
         p.trail.push(point);
-        if (p.trail.length > 200) p.trail.shift();
+        if (p.trail.length > 300) p.trail.shift();
 
         if (p.trailLine) scene.remove(p.trailLine);
 
-        const trailGeo = new THREE.BufferGeometry().setFromPoints(p.trail);
-        const trailMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.3 });
+        const positions = new Float32Array(p.trail.length * 3);
+        const colors = new Float32Array(p.trail.length * 3);
+
+        p.trail.forEach((pt, i) => {
+          positions.set([pt.x, pt.y, pt.z], i * 3);
+          const alpha = i / p.trail.length;
+          colors.set([1.0, 1.0, 1.0], i * 3); // RGB white
+        });
+
+        const trailGeo = new THREE.BufferGeometry();
+        trailGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        trailGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+        const trailMat = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.8 });
         p.trailLine = new THREE.Line(trailGeo, trailMat);
         scene.add(p.trailLine);
       });
