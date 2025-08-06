@@ -9,8 +9,9 @@
   </style>
 </head>
 <body>
-  <!-- Three.js CDN -->
+  <!-- Three.js & OrbitControls -->
   <script src="https://cdn.jsdelivr.net/npm/three@0.153.0/build/three.min.js"></script>
+  <script src="js/OrbitControls.js"></script>
 
   <!-- CONTENU 3D -->
   <script>
@@ -22,6 +23,12 @@
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.zoomSpeed = 0.5;
+    controls.enablePan = true;
 
     const light = new THREE.PointLight(0xffffff, 2, 2000);
     scene.add(light);
@@ -71,6 +78,7 @@
         p.mesh.position.set(x, y, 0);
         p.label.position.set(x, y + p.size + 10, 0);
       });
+      controls.update();
       renderer.render(scene, camera);
     }
 
