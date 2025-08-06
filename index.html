@@ -10,7 +10,7 @@
 </head>
 <body>
   <!-- Three.js & OrbitControls -->
-  <script src="https://cdn.jsdelivr.net/npm/three@0.153.0/build/three.min.js"></script>
+  <script src="js/three.min.js"></script>
   <script src="js/OrbitControls.js"></script>
 
   <!-- CONTENU 3D -->
@@ -29,6 +29,8 @@
     controls.dampingFactor = 0.05;
     controls.zoomSpeed = 0.5;
     controls.enablePan = true;
+    controls.enableRotate = true;
+    controls.autoRotate = false;
 
     const light = new THREE.PointLight(0xffffff, 2, 2000);
     scene.add(light);
