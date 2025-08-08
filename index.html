@@ -10,7 +10,6 @@
   </style>
 </head>
 <body>
-  <!-- Three.js local -->
   <script src="three.min.js"></script>
 
   <script>
@@ -27,45 +26,35 @@
 
   const loader = new THREE.TextureLoader();
 
-  // --- Soleil texturé
+  // --- Soleil
   const sun = new THREE.Mesh(
     new THREE.SphereGeometry(55, 64, 64),
     new THREE.MeshBasicMaterial({ map: loader.load('textures/sun.jpg') })
   );
   scene.add(sun);
 
-  // --- Halo doux autour du Soleil
+  // --- Halo doux
   (function addSunGlow(){
     const c = document.createElement('canvas');
     c.width = c.height = 512;
     const ctx = c.getContext('2d');
-
-    // Gradient radial: centre lumineux -> bords transparents
-    const g = ctx.createRadialGradient(256, 256, 40, 256, 256, 250);
-    g.addColorStop(0.00, 'rgba(255, 230, 120, 1.0)');
-    g.addColorStop(0.35, 'rgba(255, 210, 90, 0.7)');
-    g.addColorStop(0.70, 'rgba(255, 190, 50, 0.25)');
-    g.addColorStop(1.00, 'rgba(255, 170,  0, 0.0)');
-    ctx.fillStyle = g;
-    ctx.fillRect(0,0,512,512);
-
+    const g = ctx.createRadialGradient(256,256,40,256,256,250);
+    g.addColorStop(0.00,'rgba(255,230,120,1.0)');
+    g.addColorStop(0.35,'rgba(255,210,90,0.7)');
+    g.addColorStop(0.70,'rgba(255,190,50,0.25)');
+    g.addColorStop(1.00,'rgba(255,170,0,0.0)');
+    ctx.fillStyle = g; ctx.fillRect(0,0,512,512);
     const tex = new THREE.CanvasTexture(c);
-    const glowMat = new THREE.SpriteMaterial({
-      map: tex,
-      color: 0xffd25a,
-      transparent: true,
-      opacity: 0.55,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-      depthTest: false
+    const mat = new THREE.SpriteMaterial({
+      map: tex, color: 0xffd25a, transparent: true, opacity: 0.55,
+      blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false
     });
-    const glow = new THREE.Sprite(glowMat);
-    glow.scale.set(420, 420, 1);
-    glow.renderOrder = 999;
+    const glow = new THREE.Sprite(mat);
+    glow.scale.set(420,420,1); glow.renderOrder = 999;
     sun.add(glow);
   })();
 
-  // --- Planètes (vitesses lentes)
+  // --- Planètes
   const planets = [];
   const planetData = [
     { label:'OUTREACH', name:'Neptune', size:12, distance:150, speed:0.006, tex:'textures/neptune.jpg', ellipse:0.75 },
@@ -73,47 +62,34 @@
     { label:'RESEARCH', name:'Earth',   size:18, distance:300, speed:0.003, tex:'textures/earth.jpg',   ellipse:0.80 }
   ];
 
-  // --- Étiquette auto-scalée (~1.5× le diamètre = 3× le rayon)
+  // Étiquette auto-scalée (~1.5× diamètre)
   function makeBubbleLabel(text, planetRadius){
-    // Canvas HD (netteté)
-    const W = 256, H = 96, r = 14, tailW = 22, tailH = 12;
-    const cvs = document.createElement('canvas');
-    cvs.width = W; cvs.height = H + tailH;
-    const ctx = cvs.getContext('2d');
-
-    // fond semi-transparent
-    ctx.fillStyle = 'rgba(80,80,80,0.75)';
+    const W=256,H=96,r=14,tailW=22,tailH=12;
+    const cvs=document.createElement('canvas'); cvs.width=W; cvs.height=H+tailH;
+    const ctx=cvs.getContext('2d');
+    ctx.fillStyle='rgba(80,80,80,0.75)';
     ctx.beginPath();
     ctx.moveTo(r,0); ctx.lineTo(W-r,0); ctx.quadraticCurveTo(W,0,W,r);
     ctx.lineTo(W,H-r); ctx.quadraticCurveTo(W,H,W-r,H);
     ctx.lineTo(50+tailW,H); ctx.lineTo(50,H+tailH); ctx.lineTo(50-tailW,H);
     ctx.lineTo(r,H); ctx.quadraticCurveTo(0,H,0,H-r);
-    ctx.lineTo(0,r); ctx.quadraticCurveTo(0,0,r,0);
-    ctx.closePath(); ctx.fill();
-
-    // texte
-    ctx.font = 'bold 30px system-ui, Arial';
-    ctx.fillStyle = '#fff';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(text, W/2, H/2);
-
-    const tex = new THREE.CanvasTexture(cvs);
-    const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
-
-    // largeur ≈ 1.5× diamètre = 3× rayon ; hauteur proportionnelle
-    const widthWorld  = planetRadius * 3.0;
+    ctx.lineTo(0,r); ctx.quadraticCurveTo(0,0,r,0); ctx.closePath(); ctx.fill();
+    ctx.font='bold 30px system-ui, Arial'; ctx.fillStyle='#fff';
+    ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(text,W/2,H/2);
+    const tex=new THREE.CanvasTexture(cvs);
+    const spr=new THREE.Sprite(new THREE.SpriteMaterial({ map:tex, transparent:true }));
+    const widthWorld  = planetRadius * 3.0;  // 1.5× diamètre
     const heightWorld = planetRadius * 1.05;
     spr.scale.set(widthWorld, heightWorld, 1);
     return spr;
   }
 
-  // --- Lumières
+  // Lumières
   scene.add(new THREE.AmbientLight(0xffffff, 0.35));
   scene.add(new THREE.PointLight(0xffffff, 1.4));
 
-  // --- Création planètes + labels + TRAÎNÉES dynamiques
-  const TRAIL_MAX = 220; // longueur de la traînée (augmente/réduis pour ajuster)
+  // Traînée — paramètres
+  const TRAIL_MAX = 220; // nb de points (augmenter pour plus long)
 
   planetData.forEach(d=>{
     // planète
@@ -124,51 +100,41 @@
     mesh.userData = { angle: Math.random()*Math.PI*2, speed:d.speed, distance:d.distance, ellipse:d.ellipse };
     scene.add(mesh);
 
-    // étiquette
+    // label
     const label = makeBubbleLabel(d.label, d.size);
     scene.add(label);
 
-    // --- buffers traînée (positions + dégradé de luminosité)
+    // --- traînée (polyline unique, pas de rayons)
     const positions = new Float32Array(TRAIL_MAX * 3);
     const colors    = new Float32Array(TRAIL_MAX * 3);
-    for (let i=0; i<TRAIL_MAX; i++) {
-      const t = i / (TRAIL_MAX - 1);       // ancien -> récent
-      const c = 0.20 + 0.80 * t;           // 0.20..1.00 (blanc vers la planète)
-      colors[i*3+0] = c; colors[i*3+1] = c; colors[i*3+2] = c;
+    for (let i=0;i<TRAIL_MAX;i++){
+      const t = i / (TRAIL_MAX - 1);            // ancien -> récent
+      const c = 0.20 + 0.80 * t;                // sombre -> blanc
+      colors[i*3+0]=c; colors[i*3+1]=c; colors[i*3+2]=c;
     }
     const trailGeo = new THREE.BufferGeometry();
-    trailGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    trailGeo.setAttribute('color',    new THREE.BufferAttribute(colors, 3));
-    trailGeo.setDrawRange(0, 0);
+    trailGeo.setAttribute('position', new THREE.BufferAttribute(positions,3));
+    trailGeo.setAttribute('color',    new THREE.BufferAttribute(colors,3));
+    trailGeo.setDrawRange(0, 1); // on commence avec 1 point
 
-    const trailMat = new THREE.LineBasicMaterial({
-      vertexColors: true,
-      transparent: true,
-      opacity: 0.9
-    });
+    const trailMat = new THREE.LineBasicMaterial({ vertexColors:true, transparent:true, opacity:0.9 });
     const trail = new THREE.Line(trailGeo, trailMat);
     scene.add(trail);
 
     planets.push({
-      mesh,
-      label,
-      data: d,
-      // traînée
-      trailPos: positions,  // buffer circulaire brut
-      trailGeo,
-      trailIndex: 0,
-      trailCount: 0
+      mesh, label, data:d,
+      trailGeo, trailPos:positions, trailCount:0
     });
   });
 
-  // --- Resize
+  // Resize
   addEventListener('resize', ()=>{
     camera.aspect = innerWidth/innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(innerWidth, innerHeight);
   });
 
-  // --- Animation
+  // Animation
   function animate(){
     requestAnimationFrame(animate);
 
@@ -180,33 +146,28 @@
       const z = Math.sin(u.angle)*u.distance*u.ellipse;
       const y = 0;
 
-      // planète + label au-dessus
+      // planète
       p.mesh.position.set(x,y,z);
-      const bubbleHalfH = p.data.size * 1.05 * 0.5; // moitié de la hauteur de l'étiquette
+
+      // label (au-dessus)
+      const bubbleHalfH = p.data.size * 1.05 * 0.5;
       p.label.position.set(x, p.data.size + bubbleHalfH + 6, z);
 
-      // --- TRAÎNÉE : on écrit la position courante dans un buffer circulaire
-      const buf = p.trailPos;
-      let idx = p.trailIndex;
-      buf[idx*3+0] = x;
-      buf[idx*3+1] = y;
-      buf[idx*3+2] = z;
-
-      p.trailIndex = (idx + 1) % TRAIL_MAX;
-      if (p.trailCount < TRAIL_MAX) p.trailCount++;
-
-      // Réordonner (ancien -> récent) pour coller au dégradé des couleurs
-      const ordered = new Float32Array(TRAIL_MAX * 3);
-      for (let i=0; i<p.trailCount; i++){
-        const src = ((p.trailIndex + i) % TRAIL_MAX) * 3;
-        const dst = i * 3;
-        ordered[dst  ] = buf[src  ];
-        ordered[dst+1] = buf[src+1];
-        ordered[dst+2] = buf[src+2];
+      // --- TRAÎNÉE SANS RAYONS ---
+      // décale tout vers la gauche de 1 point
+      if (p.trailCount >= TRAIL_MAX) {
+        p.trailPos.copyWithin(0, 3);
+        // écrit le nouveau point en fin
+        p.trailPos.set([x,y,z], p.trailPos.length - 3);
+      } else {
+        // remplit progressivement le début du buffer
+        p.trailPos.set([x,y,z], p.trailCount * 3);
+        p.trailCount++;
       }
-      p.trailGeo.attributes.position.array.set(ordered);
+
+      // met à jour uniquement la partie utile et la longueur dessinée
       p.trailGeo.attributes.position.needsUpdate = true;
-      p.trailGeo.setDrawRange(0, Math.max(0, p.trailCount - 1));
+      p.trailGeo.setDrawRange(0, Math.max(2, p.trailCount));
     });
 
     renderer.render(scene, camera);
