@@ -10,7 +10,7 @@
   </style>
 </head>
 <body>
-  <!-- Three.js : garde ton chemin local si le fichier est à côté -->
+  <!-- Three.js local -->
   <script src="three.min.js"></script>
 
   <script>
@@ -45,7 +45,7 @@
     g.addColorStop(0.00, 'rgba(255, 230, 120, 1.0)');
     g.addColorStop(0.35, 'rgba(255, 210, 90, 0.7)');
     g.addColorStop(0.70, 'rgba(255, 190, 50, 0.25)');
-    g.addColorStop(1.00, 'rgba(255, 170, 0, 0.0)');
+    g.addColorStop(1.00, 'rgba(255, 170,  0, 0.0)');
     ctx.fillStyle = g;
     ctx.fillRect(0,0,512,512);
 
@@ -73,7 +73,7 @@
     { label:'RESEARCH', name:'Earth',   size:18, distance:300, speed:0.003, tex:'textures/earth.jpg',   ellipse:0.80 }
   ];
 
-  // --- Étiquette auto-scalée (~0,5× la planète = rayon)
+  // --- Étiquette auto-scalée (~1.5× le diamètre = 3× le rayon)
   function makeBubbleLabel(text, planetRadius){
     // Canvas HD (netteté)
     const W = 256, H = 96, r = 14, tailW = 22, tailH = 12;
@@ -101,7 +101,7 @@
     const tex = new THREE.CanvasTexture(cvs);
     const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
 
-    // largeur ≈ 0.5× planète => = rayon ; hauteur ≈ 0.35× rayon
+    // largeur ≈ 1.5× diamètre = 3× rayon ; hauteur proportionnelle
     const widthWorld  = planetRadius * 3.0;
     const heightWorld = planetRadius * 1.05;
     spr.scale.set(widthWorld, heightWorld, 1);
@@ -112,8 +112,8 @@
   scene.add(new THREE.AmbientLight(0xffffff, 0.35));
   scene.add(new THREE.PointLight(0xffffff, 1.4));
 
-  // --- Orbites dégradées + planètes + labels
-  const ORBIT_SEGMENTS = 256;
+  // --- Création planètes + labels + TRAÎNÉES dynamiques
+  const TRAIL_MAX = 220; // longueur de la traînée (augmente/réduis pour ajuster)
 
   planetData.forEach(d=>{
     // planète
@@ -124,31 +124,41 @@
     mesh.userData = { angle: Math.random()*Math.PI*2, speed:d.speed, distance:d.distance, ellipse:d.ellipse };
     scene.add(mesh);
 
-    // étiquette proportionnée au rayon de la planète
+    // étiquette
     const label = makeBubbleLabel(d.label, d.size);
     scene.add(label);
 
-    // orbite fixe en dégradé
-    const pos = new Float32Array(ORBIT_SEGMENTS * 3);
-    const col = new Float32Array(ORBIT_SEGMENTS * 3);
-    for (let i=0; i<ORBIT_SEGMENTS; i++){
-      const t = (i / ORBIT_SEGMENTS) * Math.PI * 2;
-      const x = Math.cos(t) * d.distance;
-      const z = Math.sin(t) * d.distance * d.ellipse;
-      const y = 0;
-      pos[i*3+0] = x; pos[i*3+1] = y; pos[i*3+2] = z;
-
-      const g = 0.25 + 0.75 * (i / (ORBIT_SEGMENTS-1)); // 0.25..1.0
-      col[i*3+0] = g; col[i*3+1] = g; col[i*3+2] = g;
+    // --- buffers traînée (positions + dégradé de luminosité)
+    const positions = new Float32Array(TRAIL_MAX * 3);
+    const colors    = new Float32Array(TRAIL_MAX * 3);
+    for (let i=0; i<TRAIL_MAX; i++) {
+      const t = i / (TRAIL_MAX - 1);       // ancien -> récent
+      const c = 0.20 + 0.80 * t;           // 0.20..1.00 (blanc vers la planète)
+      colors[i*3+0] = c; colors[i*3+1] = c; colors[i*3+2] = c;
     }
-    const orbitGeo = new THREE.BufferGeometry();
-    orbitGeo.setAttribute('position', new THREE.BufferAttribute(pos,3));
-    orbitGeo.setAttribute('color',    new THREE.BufferAttribute(col,3));
-    const orbitMat = new THREE.LineBasicMaterial({ vertexColors:true, transparent:true, opacity:0.85 });
-    const orbit    = new THREE.LineLoop(orbitGeo, orbitMat);
-    scene.add(orbit);
+    const trailGeo = new THREE.BufferGeometry();
+    trailGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    trailGeo.setAttribute('color',    new THREE.BufferAttribute(colors, 3));
+    trailGeo.setDrawRange(0, 0);
 
-    planets.push({ mesh, label, data:d });
+    const trailMat = new THREE.LineBasicMaterial({
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.9
+    });
+    const trail = new THREE.Line(trailGeo, trailMat);
+    scene.add(trail);
+
+    planets.push({
+      mesh,
+      label,
+      data: d,
+      // traînée
+      trailPos: positions,  // buffer circulaire brut
+      trailGeo,
+      trailIndex: 0,
+      trailCount: 0
+    });
   });
 
   // --- Resize
@@ -170,11 +180,33 @@
       const z = Math.sin(u.angle)*u.distance*u.ellipse;
       const y = 0;
 
+      // planète + label au-dessus
       p.mesh.position.set(x,y,z);
-
-      // place la bulle un peu au-dessus : rayon + ~la moitié de la hauteur de la bulle
-      const bubbleHalfH = p.data.size * 0.35 * 0.5;
+      const bubbleHalfH = p.data.size * 1.05 * 0.5; // moitié de la hauteur de l'étiquette
       p.label.position.set(x, p.data.size + bubbleHalfH + 6, z);
+
+      // --- TRAÎNÉE : on écrit la position courante dans un buffer circulaire
+      const buf = p.trailPos;
+      let idx = p.trailIndex;
+      buf[idx*3+0] = x;
+      buf[idx*3+1] = y;
+      buf[idx*3+2] = z;
+
+      p.trailIndex = (idx + 1) % TRAIL_MAX;
+      if (p.trailCount < TRAIL_MAX) p.trailCount++;
+
+      // Réordonner (ancien -> récent) pour coller au dégradé des couleurs
+      const ordered = new Float32Array(TRAIL_MAX * 3);
+      for (let i=0; i<p.trailCount; i++){
+        const src = ((p.trailIndex + i) % TRAIL_MAX) * 3;
+        const dst = i * 3;
+        ordered[dst  ] = buf[src  ];
+        ordered[dst+1] = buf[src+1];
+        ordered[dst+2] = buf[src+2];
+      }
+      p.trailGeo.attributes.position.array.set(ordered);
+      p.trailGeo.attributes.position.needsUpdate = true;
+      p.trailGeo.setDrawRange(0, Math.max(0, p.trailCount - 1));
     });
 
     renderer.render(scene, camera);
