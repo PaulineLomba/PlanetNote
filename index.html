@@ -10,8 +10,9 @@
   </style>
 </head>
 <body>
-    
+  <!-- Three.js : garde ton chemin local si le fichier est à côté -->
   <script src="three.min.js"></script>
+
   <script>
   // --- Scene / Camera / Renderer
   const scene = new THREE.Scene();
@@ -26,21 +27,19 @@
 
   const loader = new THREE.TextureLoader();
 
-  
-  // Soleil (tu as déjà ça)
-  const loader = new THREE.TextureLoader();
+  // --- Soleil texturé
   const sun = new THREE.Mesh(
     new THREE.SphereGeometry(55, 64, 64),
     new THREE.MeshBasicMaterial({ map: loader.load('textures/sun.jpg') })
   );
   scene.add(sun);
-  
-  // --- HALO DOUX AUTOUR DU SOLEIL ---
+
+  // --- Halo doux autour du Soleil
   (function addSunGlow(){
     const c = document.createElement('canvas');
     c.width = c.height = 512;
     const ctx = c.getContext('2d');
-  
+
     // Gradient radial: centre lumineux -> bords transparents
     const g = ctx.createRadialGradient(256, 256, 40, 256, 256, 250);
     g.addColorStop(0.00, 'rgba(255, 230, 120, 1.0)');
@@ -49,50 +48,63 @@
     g.addColorStop(1.00, 'rgba(255, 170, 0, 0.0)');
     ctx.fillStyle = g;
     ctx.fillRect(0,0,512,512);
-  
+
     const tex = new THREE.CanvasTexture(c);
     const glowMat = new THREE.SpriteMaterial({
       map: tex,
-      color: 0xffd25a,            // teinte jaune/orange
+      color: 0xffd25a,
       transparent: true,
       opacity: 0.55,
       blending: THREE.AdditiveBlending,
-      depthWrite: false,          // ne pas écrire dans le depth buffer
-      depthTest: false            // IMPORTANT: toujours visible autour du soleil
+      depthWrite: false,
+      depthTest: false
     });
     const glow = new THREE.Sprite(glowMat);
-    glow.scale.set(420, 420, 1);  // taille du halo (augmente si tu veux)
-    glow.renderOrder = 999;       // dessiné après le soleil
-    sun.add(glow);                // attaché au soleil
+    glow.scale.set(420, 420, 1);
+    glow.renderOrder = 999;
+    sun.add(glow);
   })();
-  
-
 
   // --- Planètes (vitesses lentes)
   const planets = [];
   const planetData = [
     { label:'OUTREACH', name:'Neptune', size:12, distance:140, speed:0.006, tex:'textures/neptune.jpg', ellipse:0.75 },
     { label:'PERSONAL', name:'Venus',   size:16, distance:190, speed:0.004, tex:'textures/venus.jpg',   ellipse:0.78 },
-    { label:'RESEARCH', name:'Earth',   size:18, distance:240, speed:0.003, tex:'textures/earth.jpg',   ellipse:0.8  }
+    { label:'RESEARCH', name:'Earth',   size:18, distance:240, speed:0.003, tex:'textures/earth.jpg',   ellipse:0.80 }
   ];
 
-  // --- bulle "étiquette" semi-transparente
-  function makeBubbleLabel(text){
-    const w=360,h=120,r=18,tailW=40,tailH=28;
-    const cvs=document.createElement('canvas'); cvs.width=w; cvs.height=h+tailH;
-    const ctx=cvs.getContext('2d');
-    ctx.fillStyle='rgba(80,80,80,0.75)';
+  // --- Étiquette auto-scalée (~0,5× la planète = rayon)
+  function makeBubbleLabel(text, planetRadius){
+    // Canvas HD (netteté)
+    const W = 256, H = 96, r = 14, tailW = 22, tailH = 12;
+    const cvs = document.createElement('canvas');
+    cvs.width = W; cvs.height = H + tailH;
+    const ctx = cvs.getContext('2d');
+
+    // fond semi-transparent
+    ctx.fillStyle = 'rgba(80,80,80,0.75)';
     ctx.beginPath();
-    ctx.moveTo(r,0); ctx.lineTo(w-r,0); ctx.quadraticCurveTo(w,0,w,r);
-    ctx.lineTo(w,h-r); ctx.quadraticCurveTo(w,h,w-r,h);
-    ctx.lineTo(60+tailW,h); ctx.lineTo(60,h+tailH); ctx.lineTo(60-tailW,h);
-    ctx.lineTo(r,h); ctx.quadraticCurveTo(0,h,0,h-r);
-    ctx.lineTo(0,r); ctx.quadraticCurveTo(0,0,r,0); ctx.closePath(); ctx.fill();
-    ctx.font='bold 48px system-ui, Arial'; ctx.fillStyle='#fff';
-    ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(text,w/2,h/2);
-    const tex=new THREE.CanvasTexture(cvs);
-    const spr=new THREE.Sprite(new THREE.SpriteMaterial({ map:tex, transparent:true }));
-    spr.scale.set(140,55,1);
+    ctx.moveTo(r,0); ctx.lineTo(W-r,0); ctx.quadraticCurveTo(W,0,W,r);
+    ctx.lineTo(W,H-r); ctx.quadraticCurveTo(W,H,W-r,H);
+    ctx.lineTo(50+tailW,H); ctx.lineTo(50,H+tailH); ctx.lineTo(50-tailW,H);
+    ctx.lineTo(r,H); ctx.quadraticCurveTo(0,H,0,H-r);
+    ctx.lineTo(0,r); ctx.quadraticCurveTo(0,0,r,0);
+    ctx.closePath(); ctx.fill();
+
+    // texte
+    ctx.font = 'bold 30px system-ui, Arial';
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, W/2, H/2);
+
+    const tex = new THREE.CanvasTexture(cvs);
+    const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
+
+    // largeur ≈ 0.5× planète => = rayon ; hauteur ≈ 0.35× rayon
+    const widthWorld  = planetRadius * 1.0;
+    const heightWorld = planetRadius * 0.35;
+    spr.scale.set(widthWorld, heightWorld, 1);
     return spr;
   }
 
@@ -100,8 +112,8 @@
   scene.add(new THREE.AmbientLight(0xffffff, 0.35));
   scene.add(new THREE.PointLight(0xffffff, 1.4));
 
-  // --- Création planètes + orbites dégradées + labels
-  const ORBIT_SEGMENTS = 256; // finesse des ellipses
+  // --- Orbites dégradées + planètes + labels
+  const ORBIT_SEGMENTS = 256;
 
   planetData.forEach(d=>{
     // planète
@@ -112,33 +124,26 @@
     mesh.userData = { angle: Math.random()*Math.PI*2, speed:d.speed, distance:d.distance, ellipse:d.ellipse };
     scene.add(mesh);
 
-    // étiquette
-    const label = makeBubbleLabel(d.label);
+    // étiquette proportionnée au rayon de la planète
+    const label = makeBubbleLabel(d.label, d.size);
     scene.add(label);
 
-    // ORBITE FIXE EN DÉGRADÉ (LineLoop + vertexColors)
+    // orbite fixe en dégradé
     const pos = new Float32Array(ORBIT_SEGMENTS * 3);
     const col = new Float32Array(ORBIT_SEGMENTS * 3);
-
     for (let i=0; i<ORBIT_SEGMENTS; i++){
-      const t = (i / ORBIT_SEGMENTS) * Math.PI * 2;     // angle
+      const t = (i / ORBIT_SEGMENTS) * Math.PI * 2;
       const x = Math.cos(t) * d.distance;
-      const z = Math.sin(t) * d.distance * d.ellipse;   // aplatissement -> ellipse
+      const z = Math.sin(t) * d.distance * d.ellipse;
       const y = 0;
-
-      // position
       pos[i*3+0] = x; pos[i*3+1] = y; pos[i*3+2] = z;
 
-      // dégradé fixe le long de l'orbite (ancien -> sombre, récent -> clair)
-      // tu peux inverser (1-g) si tu préfères l'autre sens
       const g = 0.25 + 0.75 * (i / (ORBIT_SEGMENTS-1)); // 0.25..1.0
       col[i*3+0] = g; col[i*3+1] = g; col[i*3+2] = g;
     }
-
     const orbitGeo = new THREE.BufferGeometry();
     orbitGeo.setAttribute('position', new THREE.BufferAttribute(pos,3));
     orbitGeo.setAttribute('color',    new THREE.BufferAttribute(col,3));
-
     const orbitMat = new THREE.LineBasicMaterial({ vertexColors:true, transparent:true, opacity:0.85 });
     const orbit    = new THREE.LineLoop(orbitGeo, orbitMat);
     scene.add(orbit);
@@ -153,7 +158,7 @@
     renderer.setSize(innerWidth, innerHeight);
   });
 
-  // --- Animation (planètes lentes + labels par-dessus)
+  // --- Animation
   function animate(){
     requestAnimationFrame(animate);
 
@@ -166,12 +171,15 @@
       const y = 0;
 
       p.mesh.position.set(x,y,z);
-      p.label.position.set(x, p.data.size + 24, z);
+
+      // place la bulle un peu au-dessus : rayon + ~la moitié de la hauteur de la bulle
+      const bubbleHalfH = p.data.size * 0.35 * 0.5;
+      p.label.position.set(x, p.data.size + bubbleHalfH + 6, z);
     });
 
     renderer.render(scene, camera);
   }
   animate();
-</script>
+  </script>
 </body>
 </html>
