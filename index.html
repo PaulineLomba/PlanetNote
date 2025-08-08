@@ -68,9 +68,9 @@
   // --- Planètes (vitesses lentes)
   const planets = [];
   const planetData = [
-    { label:'OUTREACH', name:'Neptune', size:12, distance:200, speed:0.006, tex:'textures/neptune.jpg', ellipse:0.75 },
+    { label:'OUTREACH', name:'Neptune', size:12, distance:150, speed:0.006, tex:'textures/neptune.jpg', ellipse:0.75 },
     { label:'PERSONAL', name:'Venus',   size:16, distance:250, speed:0.004, tex:'textures/venus.jpg',   ellipse:0.78 },
-    { label:'RESEARCH', name:'Earth',   size:18, distance:350, speed:0.003, tex:'textures/earth.jpg',   ellipse:0.80 }
+    { label:'RESEARCH', name:'Earth',   size:18, distance:300, speed:0.003, tex:'textures/earth.jpg',   ellipse:0.80 }
   ];
 
   // --- Étiquette auto-scalée (~0,5× la planète = rayon)
@@ -103,7 +103,7 @@
 
     // largeur ≈ 0.5× planète => = rayon ; hauteur ≈ 0.35× rayon
     const widthWorld  = planetRadius * 3.0;
-    const heightWorld = planetRadius * 0.35;
+    const heightWorld = planetRadius * 1.05;
     spr.scale.set(widthWorld, heightWorld, 1);
     return spr;
   }
