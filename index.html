@@ -1,103 +1,129 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Solar System 3D</title>
-    <style>
-        body { margin: 0; overflow: hidden; background-color: black; }
-        canvas { display: block; }
-        .label {
-            position: absolute;
-            color: white;
-            background: rgba(0, 0, 0, 0.6);
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-family: sans-serif;
-            font-size: 13px;
-            pointer-events: none;
-            white-space: nowrap;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <title>Solar System 3D</title>
+  <style>
+    html, body { height: 100%; }
+    body { margin: 0; overflow: hidden; background:#000; }
+    canvas { display:block; }
+  </style>
 </head>
 <body>
-<script src="three.min.js"></script>
-<script>
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 2000);
-    camera.position.set(0, 300, 700);
+    
+  <script src="three.min.js"></script>
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
+  <script>
+    // ----- Scene / Camera / Renderer (centré et responsive)
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(45, innerWidth/innerHeight, 0.1, 3000);
+    camera.position.set(0, 120, 450);
+    camera.lookAt(0,0,0);
+
+    const renderer = new THREE.WebGLRenderer({ antialias:true });
+    renderer.setPixelRatio(devicePixelRatio);
+    renderer.setSize(innerWidth, innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    const textureLoader = new THREE.TextureLoader();
-    const sunTexture = textureLoader.load('textures/sun.jpg');
-
-    const sunMaterial = new THREE.MeshBasicMaterial({ map: sunTexture });
-    const sunGeometry = new THREE.SphereGeometry(100, 64, 64);
-    const sun = new THREE.Mesh(sunGeometry, sunMaterial);
+    // ----- Soleil
+    const loader = new THREE.TextureLoader();
+    const sun = new THREE.Mesh(
+      new THREE.SphereGeometry(55, 64, 64),
+      new THREE.MeshBasicMaterial({ map: loader.load('textures/sun.jpg') })
+    );
     scene.add(sun);
 
+    // ----- Planètes (tailles/distances réduites pour rentrer dans l’écran)
     const planets = [];
     const planetData = [
-        { name: 'Neptune', size: 10, distance: 160, speed: 0.02, texture: 'textures/neptune.jpg' },
-        { name: 'Venus', size: 16, distance: 220, speed: 0.015, texture: 'textures/venus.jpg' },
-        { name: 'Earth', size: 18, distance: 300, speed: 0.01, texture: 'textures/earth.jpg' }
+      { label:'OUTREACH', name:'Neptune', size:12, distance:140, speed:0.018, tex:'textures/neptune.jpg' },
+      { label:'PERSONAL', name:'Venus',   size:16, distance:190, speed:0.014, tex:'textures/venus.jpg'   },
+      { label:'RESEARCH', name:'Earth',   size:18, distance:240, speed:0.010, tex:'textures/earth.jpg'   }
     ];
 
-    planetData.forEach(data => {
-        const texture = textureLoader.load(data.texture);
-        const material = new THREE.MeshStandardMaterial({ map: texture });
-        const geometry = new THREE.SphereGeometry(data.size, 32, 32);
-        const planet = new THREE.Mesh(geometry, material);
-        planet.userData = { angle: Math.random() * Math.PI * 2, speed: data.speed, distance: data.distance, name: data.name };
-        scene.add(planet);
-        planets.push(planet);
-    });
+    // -- helper: bulle “étiquette” semi-transparente (canvas -> sprite)
+    function makeBubbleLabel(text){
+      const w = 360, h = 120, r = 18;             // taille de la bulle
+      const tailW = 40, tailH = 28;               // taille du “triangle”
+      const cvs = document.createElement('canvas');
+      cvs.width = w; cvs.height = h + tailH;
+      const ctx = cvs.getContext('2d');
 
-    const labels = [];
-    planetData.forEach(data => {
-        const label = document.createElement('div');
-        label.className = 'label';
-        label.textContent = data.name;
-        document.body.appendChild(label);
-        labels.push(label);
-    });
+      // fond semi-transparent
+      ctx.fillStyle = 'rgba(80,80,80,0.75)';
+      ctx.beginPath();
+      ctx.moveTo(r,0);
+      ctx.lineTo(w-r,0); ctx.quadraticCurveTo(w,0,w,r);
+      ctx.lineTo(w,h-r); ctx.quadraticCurveTo(w,h,w-r,h);
+      ctx.lineTo(60 + tailW, h);
+      ctx.lineTo(60, h + tailH);                  // petit “triangle”
+      ctx.lineTo(60 - tailW, h);
+      ctx.lineTo(r,h); ctx.quadraticCurveTo(0,h,0,h-r);
+      ctx.lineTo(0,r); ctx.quadraticCurveTo(0,0,r,0);
+      ctx.closePath(); ctx.fill();
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
-    scene.add(ambientLight);
-    const pointLight = new THREE.PointLight(0xffffff, 1.5, 0);
-    pointLight.position.set(0, 0, 0);
-    scene.add(pointLight);
+      // texte
+      ctx.font = 'bold 48px system-ui, Arial, sans-serif';
+      ctx.fillStyle = '#fff';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(text, w/2, h/2);
 
-    window.addEventListener('resize', () => {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-    });
+      const tex = new THREE.CanvasTexture(cvs);
+      tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
 
-    function animate() {
-        requestAnimationFrame(animate);
-
-        planets.forEach((planet, index) => {
-            const { speed, distance } = planet.userData;
-            planet.userData.angle += speed;
-            planet.position.set(
-                Math.cos(planet.userData.angle) * distance,
-                0,
-                Math.sin(planet.userData.angle) * distance
-            );
-
-            const vector = planet.position.clone().project(camera);
-            const x = (vector.x + 1) / 2 * window.innerWidth;
-            const y = -(vector.y - 1) / 2 * window.innerHeight;
-            labels[index].style.transform = `translate(-50%, -50%) translate(${x}px,${y}px)`;
-        });
-
-        renderer.render(scene, camera);
+      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent:true }));
+      // échelle raisonnable pour notre scène
+      sprite.scale.set(140, 55, 1); // (x,y) seulement
+      return sprite;
     }
 
+    // Lumières
+    scene.add(new THREE.AmbientLight(0xffffff, 0.35));
+    const sunLight = new THREE.PointLight(0xffffff, 1.4, 0);
+    scene.add(sunLight);
+
+    // Création des planètes + étiquettes
+    planetData.forEach(d=>{
+      const mesh = new THREE.Mesh(
+        new THREE.SphereGeometry(d.size, 32, 32),
+        new THREE.MeshStandardMaterial({ map: loader.load(d.tex) })
+      );
+      mesh.userData = { angle: Math.random()*Math.PI*2, speed:d.speed, distance:d.distance, label:d.label };
+      scene.add(mesh);
+
+      // étiquette au-dessus
+      const label = makeBubbleLabel(d.label);
+      scene.add(label);
+
+      planets.push({ mesh, label, data:d });
+    });
+
+    // Resize
+    addEventListener('resize', ()=>{
+      camera.aspect = innerWidth/innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth, innerHeight);
+    });
+
+    // Animation
+    function animate(){
+      requestAnimationFrame(animate);
+
+      planets.forEach(p=>{
+        const u = p.mesh.userData;
+        u.angle += u.speed;
+        const x = Math.cos(u.angle)*u.distance;
+        const z = Math.sin(u.angle)*u.distance;
+        p.mesh.position.set(x, 0, z);
+
+        // place la bulle au-dessus (un peu décalée en Y)
+        p.label.position.set(x, p.data.size + 24, z);
+      });
+
+      renderer.render(scene, camera);
+    }
     animate();
-</script>
+  </script>
 </body>
 </html>
