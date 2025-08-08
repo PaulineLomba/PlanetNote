@@ -26,60 +26,46 @@
 
   const loader = new THREE.TextureLoader();
 
-  // --- Soleil + halo doux
+  
+  // Soleil (tu as déjà ça)
   const loader = new THREE.TextureLoader();
-
-  // Soleil texturé (garde MeshBasicMaterial pour un rendu bien “émissif”)
   const sun = new THREE.Mesh(
     new THREE.SphereGeometry(55, 64, 64),
     new THREE.MeshBasicMaterial({ map: loader.load('textures/sun.jpg') })
   );
   scene.add(sun);
   
-  // Petit boost de lumière perçue (optionnel) :
-  // si tu préfères, utilise plutôt MeshStandardMaterial pour pouvoir jouer avec 'emissive'
-  // const sun = new THREE.Mesh(
-  //   new THREE.SphereGeometry(55, 64, 64),
-  //   new THREE.MeshStandardMaterial({
-  //     map: loader.load('textures/sun.jpg'),
-  //     emissive: 0xFFB300,
-  //     emissiveIntensity: 0.6
-  //   })
-  // );
-  
-  // Halo : sprite à gradient radial en additive blending (doux & large)
-  function makeGlowSprite(hexColor = 0xffcc33, size = 360, opacity = 0.55) {
+  // --- HALO DOUX AUTOUR DU SOLEIL ---
+  (function addSunGlow(){
     const c = document.createElement('canvas');
     c.width = c.height = 512;
     const ctx = c.getContext('2d');
   
+    // Gradient radial: centre lumineux -> bords transparents
     const g = ctx.createRadialGradient(256, 256, 40, 256, 256, 250);
-    // centre très lumineux -> bords transparents
-    g.addColorStop(0.0, 'rgba(255, 220, 100, 1.0)');
-    g.addColorStop(0.35,'rgba(255, 200, 80, 0.7)');
-    g.addColorStop(0.7, 'rgba(255, 180, 40, 0.25)');
-    g.addColorStop(1.0, 'rgba(255, 160, 0, 0.0)');
+    g.addColorStop(0.00, 'rgba(255, 230, 120, 1.0)');
+    g.addColorStop(0.35, 'rgba(255, 210, 90, 0.7)');
+    g.addColorStop(0.70, 'rgba(255, 190, 50, 0.25)');
+    g.addColorStop(1.00, 'rgba(255, 170, 0, 0.0)');
     ctx.fillStyle = g;
     ctx.fillRect(0,0,512,512);
   
     const tex = new THREE.CanvasTexture(c);
-    const mat = new THREE.SpriteMaterial({
+    const glowMat = new THREE.SpriteMaterial({
       map: tex,
-      color: hexColor,
+      color: 0xffd25a,            // teinte jaune/orange
       transparent: true,
-      opacity: opacity,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending
+      opacity: 0.55,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,          // ne pas écrire dans le depth buffer
+      depthTest: false            // IMPORTANT: toujours visible autour du soleil
     });
-    const spr = new THREE.Sprite(mat);
-    spr.scale.set(size, size, 1); // taille du halo
-    spr.renderOrder = -1;         // derrière tout pour éviter de “manger” les labels
-    return spr;
-  }
+    const glow = new THREE.Sprite(glowMat);
+    glow.scale.set(420, 420, 1);  // taille du halo (augmente si tu veux)
+    glow.renderOrder = 999;       // dessiné après le soleil
+    sun.add(glow);                // attaché au soleil
+  })();
   
-  // ajoute le halo au centre
-  const sunGlow = makeGlowSprite(0xffd25a, 420, 0.55);
-  sun.add(sunGlow); // le halo suit le Soleil
 
 
   // --- Planètes (vitesses lentes)
