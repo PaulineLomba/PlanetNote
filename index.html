@@ -12,118 +12,131 @@
 <body>
     
   <script src="three.min.js"></script>
-
   <script>
-    // ----- Scene / Camera / Renderer (centré et responsive)
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(45, innerWidth/innerHeight, 0.1, 3000);
-    camera.position.set(0, 120, 450);
-    camera.lookAt(0,0,0);
+  // --- Scene / Camera / Renderer
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(45, innerWidth/innerHeight, 0.1, 3000);
+  camera.position.set(0, 120, 450);
+  camera.lookAt(0,0,0);
 
-    const renderer = new THREE.WebGLRenderer({ antialias:true });
-    renderer.setPixelRatio(devicePixelRatio);
-    renderer.setSize(innerWidth, innerHeight);
-    document.body.appendChild(renderer.domElement);
+  const renderer = new THREE.WebGLRenderer({ antialias:true });
+  renderer.setPixelRatio(devicePixelRatio);
+  renderer.setSize(innerWidth, innerHeight);
+  document.body.appendChild(renderer.domElement);
 
-    // ----- Soleil
-    const loader = new THREE.TextureLoader();
-    const sun = new THREE.Mesh(
-      new THREE.SphereGeometry(55, 64, 64),
-      new THREE.MeshBasicMaterial({ map: loader.load('textures/sun.jpg') })
+  const loader = new THREE.TextureLoader();
+
+  // --- Soleil
+  const sun = new THREE.Mesh(
+    new THREE.SphereGeometry(55, 64, 64),
+    new THREE.MeshBasicMaterial({ map: loader.load('textures/sun.jpg') })
+  );
+  scene.add(sun);
+
+  // --- Planètes (vitesses lentes)
+  const planets = [];
+  const planetData = [
+    { label:'OUTREACH', name:'Neptune', size:12, distance:140, speed:0.006, tex:'textures/neptune.jpg', ellipse:0.75 },
+    { label:'PERSONAL', name:'Venus',   size:16, distance:190, speed:0.004, tex:'textures/venus.jpg',   ellipse:0.78 },
+    { label:'RESEARCH', name:'Earth',   size:18, distance:240, speed:0.003, tex:'textures/earth.jpg',   ellipse:0.8  }
+  ];
+
+  // --- bulle "étiquette" semi-transparente
+  function makeBubbleLabel(text){
+    const w=360,h=120,r=18,tailW=40,tailH=28;
+    const cvs=document.createElement('canvas'); cvs.width=w; cvs.height=h+tailH;
+    const ctx=cvs.getContext('2d');
+    ctx.fillStyle='rgba(80,80,80,0.75)';
+    ctx.beginPath();
+    ctx.moveTo(r,0); ctx.lineTo(w-r,0); ctx.quadraticCurveTo(w,0,w,r);
+    ctx.lineTo(w,h-r); ctx.quadraticCurveTo(w,h,w-r,h);
+    ctx.lineTo(60+tailW,h); ctx.lineTo(60,h+tailH); ctx.lineTo(60-tailW,h);
+    ctx.lineTo(r,h); ctx.quadraticCurveTo(0,h,0,h-r);
+    ctx.lineTo(0,r); ctx.quadraticCurveTo(0,0,r,0); ctx.closePath(); ctx.fill();
+    ctx.font='bold 48px system-ui, Arial'; ctx.fillStyle='#fff';
+    ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(text,w/2,h/2);
+    const tex=new THREE.CanvasTexture(cvs);
+    const spr=new THREE.Sprite(new THREE.SpriteMaterial({ map:tex, transparent:true }));
+    spr.scale.set(140,55,1);
+    return spr;
+  }
+
+  // --- Lumières
+  scene.add(new THREE.AmbientLight(0xffffff, 0.35));
+  scene.add(new THREE.PointLight(0xffffff, 1.4));
+
+  // --- Création planètes + orbites dégradées + labels
+  const ORBIT_SEGMENTS = 256; // finesse des ellipses
+
+  planetData.forEach(d=>{
+    // planète
+    const mesh = new THREE.Mesh(
+      new THREE.SphereGeometry(d.size,32,32),
+      new THREE.MeshStandardMaterial({ map: loader.load(d.tex) })
     );
-    scene.add(sun);
+    mesh.userData = { angle: Math.random()*Math.PI*2, speed:d.speed, distance:d.distance, ellipse:d.ellipse };
+    scene.add(mesh);
 
-    // ----- Planètes (tailles/distances réduites pour rentrer dans l’écran)
-    const planets = [];
-    const planetData = [
-      { label:'OUTREACH', name:'Neptune', size:12, distance:140, speed:0.018, tex:'textures/neptune.jpg' },
-      { label:'PERSONAL', name:'Venus',   size:16, distance:190, speed:0.014, tex:'textures/venus.jpg'   },
-      { label:'RESEARCH', name:'Earth',   size:18, distance:240, speed:0.010, tex:'textures/earth.jpg'   }
-    ];
+    // étiquette
+    const label = makeBubbleLabel(d.label);
+    scene.add(label);
 
-    // -- helper: bulle “étiquette” semi-transparente (canvas -> sprite)
-    function makeBubbleLabel(text){
-      const w = 360, h = 120, r = 18;             // taille de la bulle
-      const tailW = 40, tailH = 28;               // taille du “triangle”
-      const cvs = document.createElement('canvas');
-      cvs.width = w; cvs.height = h + tailH;
-      const ctx = cvs.getContext('2d');
+    // ORBITE FIXE EN DÉGRADÉ (LineLoop + vertexColors)
+    const pos = new Float32Array(ORBIT_SEGMENTS * 3);
+    const col = new Float32Array(ORBIT_SEGMENTS * 3);
 
-      // fond semi-transparent
-      ctx.fillStyle = 'rgba(80,80,80,0.75)';
-      ctx.beginPath();
-      ctx.moveTo(r,0);
-      ctx.lineTo(w-r,0); ctx.quadraticCurveTo(w,0,w,r);
-      ctx.lineTo(w,h-r); ctx.quadraticCurveTo(w,h,w-r,h);
-      ctx.lineTo(60 + tailW, h);
-      ctx.lineTo(60, h + tailH);                  // petit “triangle”
-      ctx.lineTo(60 - tailW, h);
-      ctx.lineTo(r,h); ctx.quadraticCurveTo(0,h,0,h-r);
-      ctx.lineTo(0,r); ctx.quadraticCurveTo(0,0,r,0);
-      ctx.closePath(); ctx.fill();
+    for (let i=0; i<ORBIT_SEGMENTS; i++){
+      const t = (i / ORBIT_SEGMENTS) * Math.PI * 2;     // angle
+      const x = Math.cos(t) * d.distance;
+      const z = Math.sin(t) * d.distance * d.ellipse;   // aplatissement -> ellipse
+      const y = 0;
 
-      // texte
-      ctx.font = 'bold 48px system-ui, Arial, sans-serif';
-      ctx.fillStyle = '#fff';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(text, w/2, h/2);
+      // position
+      pos[i*3+0] = x; pos[i*3+1] = y; pos[i*3+2] = z;
 
-      const tex = new THREE.CanvasTexture(cvs);
-      tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
-
-      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent:true }));
-      // échelle raisonnable pour notre scène
-      sprite.scale.set(140, 55, 1); // (x,y) seulement
-      return sprite;
+      // dégradé fixe le long de l'orbite (ancien -> sombre, récent -> clair)
+      // tu peux inverser (1-g) si tu préfères l'autre sens
+      const g = 0.25 + 0.75 * (i / (ORBIT_SEGMENTS-1)); // 0.25..1.0
+      col[i*3+0] = g; col[i*3+1] = g; col[i*3+2] = g;
     }
 
-    // Lumières
-    scene.add(new THREE.AmbientLight(0xffffff, 0.35));
-    const sunLight = new THREE.PointLight(0xffffff, 1.4, 0);
-    scene.add(sunLight);
+    const orbitGeo = new THREE.BufferGeometry();
+    orbitGeo.setAttribute('position', new THREE.BufferAttribute(pos,3));
+    orbitGeo.setAttribute('color',    new THREE.BufferAttribute(col,3));
 
-    // Création des planètes + étiquettes
-    planetData.forEach(d=>{
-      const mesh = new THREE.Mesh(
-        new THREE.SphereGeometry(d.size, 32, 32),
-        new THREE.MeshStandardMaterial({ map: loader.load(d.tex) })
-      );
-      mesh.userData = { angle: Math.random()*Math.PI*2, speed:d.speed, distance:d.distance, label:d.label };
-      scene.add(mesh);
+    const orbitMat = new THREE.LineBasicMaterial({ vertexColors:true, transparent:true, opacity:0.85 });
+    const orbit    = new THREE.LineLoop(orbitGeo, orbitMat);
+    scene.add(orbit);
 
-      // étiquette au-dessus
-      const label = makeBubbleLabel(d.label);
-      scene.add(label);
+    planets.push({ mesh, label, data:d });
+  });
 
-      planets.push({ mesh, label, data:d });
+  // --- Resize
+  addEventListener('resize', ()=>{
+    camera.aspect = innerWidth/innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+  });
+
+  // --- Animation (planètes lentes + labels par-dessus)
+  function animate(){
+    requestAnimationFrame(animate);
+
+    planets.forEach(p=>{
+      const u = p.mesh.userData;
+      u.angle += u.speed;
+
+      const x = Math.cos(u.angle)*u.distance;
+      const z = Math.sin(u.angle)*u.distance*u.ellipse;
+      const y = 0;
+
+      p.mesh.position.set(x,y,z);
+      p.label.position.set(x, p.data.size + 24, z);
     });
 
-    // Resize
-    addEventListener('resize', ()=>{
-      camera.aspect = innerWidth/innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(innerWidth, innerHeight);
-    });
-
-    // Animation
-    function animate(){
-      requestAnimationFrame(animate);
-
-      planets.forEach(p=>{
-        const u = p.mesh.userData;
-        u.angle += u.speed;
-        const x = Math.cos(u.angle)*u.distance;
-        const z = Math.sin(u.angle)*u.distance;
-        p.mesh.position.set(x, 0, z);
-
-        // place la bulle au-dessus (un peu décalée en Y)
-        p.label.position.set(x, p.data.size + 24, z);
-      });
-
-      renderer.render(scene, camera);
-    }
-    animate();
-  </script>
+    renderer.render(scene, camera);
+  }
+  animate();
+</script>
 </body>
 </html>
