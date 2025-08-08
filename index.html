@@ -9,7 +9,7 @@
     canvas { display:block; }
   </style>
 </head>
-  <link rel="icon" type="image/png" href="bonlogo.png">
+  <link rel="icon" type="image/png" href="textures/bonlogo.png">
 
 <body>
 
@@ -19,6 +19,17 @@
   <script>
   // --- Scene / Camera / Renderer
   const scene = new THREE.Scene();
+
+  // --- Fond étoilé type Eyes on Exoplanets ---
+  const starTexture = loader.load('textures/fondstar.jpg');
+  const starGeometry = new THREE.SphereGeometry(2000, 64, 64);
+  const starMaterial = new THREE.MeshBasicMaterial({
+    map: starTexture,
+    side: THREE.BackSide // On regarde depuis l'intérieur
+  });
+  const starField = new THREE.Mesh(starGeometry, starMaterial);
+  scene.add(starField);
+
   const camera = new THREE.PerspectiveCamera(45, innerWidth/innerHeight, 0.1, 3000);
   camera.position.set(0, 120, 520);
   camera.lookAt(0,0,0);
@@ -144,25 +155,25 @@
     renderer.setSize(innerWidth, innerHeight);
   });
 
+
+    
   // Animation
   function animate(){
     requestAnimationFrame(animate);
-
+  
+    // légère rotation du fond
+    starField.rotation.y += 0.0001;
+  
     planets.forEach(p=>{
       const u = p.mesh.userData;
       u.angle += u.speed;
-
       const x = Math.cos(u.angle)*u.distance;
       const z = Math.sin(u.angle)*u.distance*u.ellipse;
-      const y = 0;
-
-      p.mesh.position.set(x,y,z);
-
-      // label au-dessus
-      const bubbleHalfH = p.data.size * 1.05 * 0.5;
+      p.mesh.position.set(x, 0, z);
+      const bubbleHalfH = p.data.size * 0.35 * 0.5;
       p.label.position.set(x, p.data.size + bubbleHalfH + 6, z);
     });
-
+  
     renderer.render(scene, camera);
   }
   animate();
