@@ -17,167 +17,140 @@
   <script src="three.min.js"></script>
 
   <script>
-  // --- Scene / Camera / Renderer
-  const scene = new THREE.Scene();
-
-  // --- Fond étoilé type Eyes on Exoplanets ---
-  const starTexture = loader.load('textures/fondstar.jpg');
-  const starGeometry = new THREE.SphereGeometry(2000, 64, 64);
-  const starMaterial = new THREE.MeshBasicMaterial({
-    map: starTexture,
-    side: THREE.BackSide // On regarde depuis l'intérieur
-  });
-  const starField = new THREE.Mesh(starGeometry, starMaterial);
-  scene.add(starField);
-
-  const camera = new THREE.PerspectiveCamera(45, innerWidth/innerHeight, 0.1, 3000);
-  camera.position.set(0, 120, 520);
-  camera.lookAt(0,0,0);
-
-  const renderer = new THREE.WebGLRenderer({ antialias:true });
-  renderer.setPixelRatio(devicePixelRatio);
-  renderer.setSize(innerWidth, innerHeight);
-  document.body.appendChild(renderer.domElement);
-
-  const loader = new THREE.TextureLoader();
-
-  // --- Soleil
-  const sun = new THREE.Mesh(
-    new THREE.SphereGeometry(55, 64, 64),
-    new THREE.MeshBasicMaterial({ map: loader.load('textures/sun.jpg') })
-  );
-  scene.add(sun);
-
-  // --- Halo doux autour du Soleil
-  (function addSunGlow(){
-    const c = document.createElement('canvas');
-    c.width = c.height = 512;
-    const ctx = c.getContext('2d');
-    const g = ctx.createRadialGradient(256,256,40,256,256,250);
-    g.addColorStop(0.00,'rgba(255,230,120,1.0)');
-    g.addColorStop(0.35,'rgba(255,210,90,0.7)');
-    g.addColorStop(0.70,'rgba(255,190,50,0.25)');
-    g.addColorStop(1.00,'rgba(255,170,0,0.0)');
-    ctx.fillStyle = g; ctx.fillRect(0,0,512,512);
-    const tex = new THREE.CanvasTexture(c);
-    const mat = new THREE.SpriteMaterial({
-      map: tex, color: 0xffd25a, transparent:true, opacity:0.55,
-      blending: THREE.AdditiveBlending, depthWrite:false, depthTest:false
-    });
-    const glow = new THREE.Sprite(mat);
-    glow.scale.set(420,420,1);
-    glow.renderOrder = 999;
-    sun.add(glow);
-  })();
-
-  // --- Planètes + paramètres d’orbite
-  const planets = [];
-  // Couleurs d’orbite (une par planète) – tu peux ajuster
-  const orbitColors = [0xA64AC9, 0x00BCD4, 0x8BC34A]; // violet, cyan, vert
-
-  const planetData = [
-    { label:'OUTREACH', name:'Neptune', size:12, distance:150, speed:0.006, tex:'textures/neptune.jpg', ellipse:0.75 },
-    { label:'PERSONAL', name:'Venus',   size:16, distance:220, speed:0.004, tex:'textures/venus.jpg',   ellipse:0.78 },
-    { label:'RESEARCH', name:'Earth',   size:18, distance:280, speed:0.003, tex:'textures/earth.jpg',   ellipse:0.80 }
-  ];
-
-  // --- Étiquette auto-scalée (~1.5× diamètre)
-  function makeBubbleLabel(text, planetRadius){
-    const W=256,H=96,r=14,tailW=22,tailH=12;
-    const cvs=document.createElement('canvas'); cvs.width=W; cvs.height=H+tailH;
-    const ctx=cvs.getContext('2d');
-    ctx.fillStyle='rgba(80,80,80,0.75)';
-    ctx.beginPath();
-    ctx.moveTo(r,0); ctx.lineTo(W-r,0); ctx.quadraticCurveTo(W,0,W,r);
-    ctx.lineTo(W,H-r); ctx.quadraticCurveTo(W,H,W-r,H);
-    ctx.lineTo(50+tailW,H); ctx.lineTo(50,H+tailH); ctx.lineTo(50-tailW,H);
-    ctx.lineTo(r,H); ctx.quadraticCurveTo(0,H,0,H-r);
-    ctx.lineTo(0,r); ctx.quadraticCurveTo(0,0,r,0);
-    ctx.closePath(); ctx.fill();
-    ctx.font='bold 30px system-ui, Arial'; ctx.fillStyle='#fff';
-    ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(text,W/2,H/2);
-    const tex=new THREE.CanvasTexture(cvs);
-    const spr=new THREE.Sprite(new THREE.SpriteMaterial({ map:tex, transparent:true }));
-    const widthWorld  = planetRadius * 3.0;  // 1.5× diamètre
-    const heightWorld = planetRadius * 1.05;
-    spr.scale.set(widthWorld, heightWorld, 1);
-    return spr;
-  }
-
-  // Lumières
-  scene.add(new THREE.AmbientLight(0xffffff, 0.35));
-  scene.add(new THREE.PointLight(0xffffff, 1.4));
-
-  // --- ORBITES COMPLÈTES colorées + planètes + labels
-  const ORBIT_SEGMENTS = 360; // finesse
-
-  planetData.forEach((d, idx)=>{
-    // planète
-    const mesh = new THREE.Mesh(
-      new THREE.SphereGeometry(d.size,32,32),
-      new THREE.MeshStandardMaterial({ map: loader.load(d.tex) })
-    );
-    mesh.userData = { angle: Math.random()*Math.PI*2, speed:d.speed, distance:d.distance, ellipse:d.ellipse };
-    scene.add(mesh);
-
-    // label
-    const label = makeBubbleLabel(d.label, d.size);
-    scene.add(label);
-
-    // ORBITE FIXE (LineLoop) d’une couleur propre à la planète
-    const positions = new Float32Array(ORBIT_SEGMENTS * 3);
-    for (let i=0; i<ORBIT_SEGMENTS; i++){
-      const t = (i / ORBIT_SEGMENTS) * Math.PI * 2;
-      positions[i*3+0] = Math.cos(t) * d.distance;
-      positions[i*3+1] = 0;
-      positions[i*3+2] = Math.sin(t) * d.distance * d.ellipse;
-    }
-    const orbitGeo = new THREE.BufferGeometry();
-    orbitGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-
-    // NOTE : LineBasicMaterial ne supporte pas l’épaisseur (linewidth) sur la plupart des navigateurs.
-    // Pour plus épais → on pourra passer à Line2 (three/examples), si tu veux.
-    const orbitMat = new THREE.LineBasicMaterial({
-      color: orbitColors[idx % orbitColors.length],
-      transparent: true,
-      opacity: 0.9
-    });
-    const orbit = new THREE.LineLoop(orbitGeo, orbitMat);
-    scene.add(orbit);
-
-    planets.push({ mesh, label, data:d });
-  });
-
-  // Resize
-  addEventListener('resize', ()=>{
-    camera.aspect = innerWidth/innerHeight;
-    camera.updateProjectionMatrix();
+    // --- Scene / Camera / Renderer
+    const scene = new THREE.Scene();
+  
+    const camera = new THREE.PerspectiveCamera(45, innerWidth/innerHeight, 0.1, 3000);
+    camera.position.set(0, 120, 520);
+    camera.lookAt(0,0,0);
+  
+    const renderer = new THREE.WebGLRenderer({ antialias:true });
+    renderer.setPixelRatio(devicePixelRatio);
     renderer.setSize(innerWidth, innerHeight);
-  });
-
-
-    
-  // Animation
-  function animate(){
-    requestAnimationFrame(animate);
+    document.body.appendChild(renderer.domElement);
   
-    // légère rotation du fond
-    starField.rotation.y += 0.0001;
+    // ✅ Déclarer le loader AVANT tout .load()
+    const loader = new THREE.TextureLoader();
   
-    planets.forEach(p=>{
-      const u = p.mesh.userData;
-      u.angle += u.speed;
-      const x = Math.cos(u.angle)*u.distance;
-      const z = Math.sin(u.angle)*u.distance*u.ellipse;
-      p.mesh.position.set(x, 0, z);
-      const bubbleHalfH = p.data.size * 0.35 * 0.5;
-      p.label.position.set(x, p.data.size + bubbleHalfH + 6, z);
+    // --- Fond étoilé
+    const starTexture = loader.load('textures/fondstar.jpg'); // vérifie le nom/chemin
+    const starGeometry = new THREE.SphereGeometry(2000, 64, 64);
+    const starMaterial = new THREE.MeshBasicMaterial({ map: starTexture, side: THREE.BackSide });
+    const starField = new THREE.Mesh(starGeometry, starMaterial);
+    scene.add(starField);
+  
+    // --- Soleil
+    const sun = new THREE.Mesh(
+      new THREE.SphereGeometry(55, 64, 64),
+      new THREE.MeshBasicMaterial({ map: loader.load('textures/sun.jpg') })
+    );
+    scene.add(sun);
+  
+    // --- Halo doux autour du Soleil
+    (function addSunGlow(){
+      const c = document.createElement('canvas'); c.width = c.height = 512;
+      const ctx = c.getContext('2d');
+      const g = ctx.createRadialGradient(256,256,40,256,256,250);
+      g.addColorStop(0.00,'rgba(255,230,120,1.0)');
+      g.addColorStop(0.35,'rgba(255,210,90,0.7)');
+      g.addColorStop(0.70,'rgba(255,190,50,0.25)');
+      g.addColorStop(1.00,'rgba(255,170,0,0.0)');
+      ctx.fillStyle = g; ctx.fillRect(0,0,512,512);
+      const tex = new THREE.CanvasTexture(c);
+      const mat = new THREE.SpriteMaterial({
+        map: tex, color: 0xffd25a, transparent:true, opacity:0.55,
+        blending: THREE.AdditiveBlending, depthWrite:false, depthTest:false
+      });
+      const glow = new THREE.Sprite(mat);
+      glow.scale.set(420,420,1); glow.renderOrder = 999;
+      sun.add(glow);
+    })();
+  
+    // --- Planètes / orbites / labels
+    const planets = [];
+    const orbitColors = [0xA64AC9, 0x00BCD4, 0x8BC34A];
+    const planetData = [
+      { label:'OUTREACH', name:'Neptune', size:12, distance:150, speed:0.006, tex:'textures/neptune.jpg', ellipse:0.75 },
+      { label:'PERSONAL', name:'Venus',   size:16, distance:220, speed:0.004, tex:'textures/venus.jpg',   ellipse:0.78 },
+      { label:'RESEARCH', name:'Earth',   size:18, distance:280, speed:0.003, tex:'textures/earth.jpg',   ellipse:0.80 }
+    ];
+  
+    function makeBubbleLabel(text, planetRadius){
+      const W=256,H=96,r=14,tailW=22,tailH=12;
+      const cvs=document.createElement('canvas'); cvs.width=W; cvs.height=H+tailH;
+      const ctx=cvs.getContext('2d');
+      ctx.fillStyle='rgba(80,80,80,0.75)';
+      ctx.beginPath();
+      ctx.moveTo(r,0); ctx.lineTo(W-r,0); ctx.quadraticCurveTo(W,0,W,r);
+      ctx.lineTo(W,H-r); ctx.quadraticCurveTo(W,H,W-r,H);
+      ctx.lineTo(50+tailW,H); ctx.lineTo(50,H+tailH); ctx.lineTo(50-tailW,H);
+      ctx.lineTo(r,H); ctx.quadraticCurveTo(0,H,0,H-r);
+      ctx.lineTo(0,r); ctx.quadraticCurveTo(0,0,r,0); ctx.closePath(); ctx.fill();
+      ctx.font='bold 30px system-ui, Arial'; ctx.fillStyle='#fff';
+      ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(text,W/2,H/2);
+      const tex=new THREE.CanvasTexture(cvs);
+      const spr=new THREE.Sprite(new THREE.SpriteMaterial({ map:tex, transparent:true }));
+      spr.scale.set(planetRadius*3.0, planetRadius*1.05, 1); // ~1.5× diamètre
+      return spr;
+    }
+  
+    scene.add(new THREE.AmbientLight(0xffffff, 0.35));
+    scene.add(new THREE.PointLight(0xffffff, 1.4));
+  
+    const ORBIT_SEGMENTS = 360;
+  
+    planetData.forEach((d, idx)=>{
+      const mesh = new THREE.Mesh(
+        new THREE.SphereGeometry(d.size,32,32),
+        new THREE.MeshStandardMaterial({ map: loader.load(d.tex) })
+      );
+      mesh.userData = { angle: Math.random()*Math.PI*2, speed:d.speed, distance:d.distance, ellipse:d.ellipse };
+      scene.add(mesh);
+  
+      const label = makeBubbleLabel(d.label, d.size);
+      scene.add(label);
+  
+      const positions = new Float32Array(ORBIT_SEGMENTS * 3);
+      for (let i=0; i<ORBIT_SEGMENTS; i++){
+        const t = (i / ORBIT_SEGMENTS) * Math.PI * 2;
+        positions[i*3+0] = Math.cos(t) * d.distance;
+        positions[i*3+1] = 0;
+        positions[i*3+2] = Math.sin(t) * d.distance * d.ellipse;
+      }
+      const orbitGeo = new THREE.BufferGeometry();
+      orbitGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      const orbitMat = new THREE.LineBasicMaterial({ color: orbitColors[idx%orbitColors.length], transparent:true, opacity:0.9 });
+      const orbit = new THREE.LineLoop(orbitGeo, orbitMat);
+      scene.add(orbit);
+  
+      planets.push({ mesh, label, data:d });
     });
   
-    renderer.render(scene, camera);
-  }
-  animate();
+    addEventListener('resize', ()=>{
+      camera.aspect = innerWidth/innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth, innerHeight);
+    });
+  
+    function animate(){
+      requestAnimationFrame(animate);
+      starField.rotation.y += 0.0001; // légère rotation du fond
+  
+      planets.forEach(p=>{
+        const u = p.mesh.userData;
+        u.angle += u.speed;
+        const x = Math.cos(u.angle)*u.distance;
+        const z = Math.sin(u.angle)*u.distance*u.ellipse;
+        p.mesh.position.set(x, 0, z);
+        const bubbleHalfH = p.data.size * 0.35 * 0.5;
+        p.label.position.set(x, p.data.size + bubbleHalfH + 6, z);
+      });
+  
+      renderer.render(scene, camera);
+    }
+    animate();
   </script>
+
   <style>
     #siteLogo {
       position:absolute; top:15px; left:15px;
